@@ -8,28 +8,41 @@ import { spawn } from 'child_process';
 
 const argv = minimist(process.argv.slice(2));
 
+let x = config.services.X;
+let bluesky = config.services.bluesky;
+let threads = config.services.threads;
+let mastodon = config.services.mastodon;
+let farcaster = config.services.farcaster;
+if (argv.x || argv.b || argv.t || argv.m || argv.f) {
+    x = argv.x && x;
+    bluesky = argv.b && bluesky;
+    threads = argv.t && threads;
+    mastodon = argv.m && mastodon;
+    farcaster = argv.f && farcaster;
+}
+
 // TODO: Implement threaded multiple tweets.
 const poast = argv._[0];
 
 const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
 
-if (config.services.X) {
+if (x) {
     const consumerClient = new TwitterApi({
-      appKey: config.services.X.appKey,
-      appSecret: config.services.X.appSecret,
-      accessToken: config.services.X.accessToken,
-      accessSecret: config.services.X.accessSecret,
+      appKey: x.appKey,
+      appSecret: x.appSecret,
+      accessToken: x.accessToken,
+      accessSecret: x.accessSecret,
     });
 
     await consumerClient.v2.tweet(poast);
 }
 
-if (config.services.bluesky) {
+if (bluesky) {
     const agent = new BskyAgent.BskyAgent({ service: 'https://bsky.social' })
 
     await agent.login({
-      identifier: config.services.bluesky.identifier,
-      password: config.services.bluesky.password,
+      identifier: bluesky.identifier,
+      password: bluesky.password,
     });
 
     await agent.post({
@@ -37,17 +50,17 @@ if (config.services.bluesky) {
     });
 }
 
-if (config.services.threads) {
+if (threads) {
     const client = new Client();
-    await client.login(config.services.threads.username, config.services.threads.password);
+    await client.login(threads.username, threads.password);
 
     // TODO: store token so as not to login every single time.
     await client.posts.create(1, { contents: poast })
 }
 
-if (config.services.mastadon) {
+if (mastodon) {
     const M = new Mastodon({
-        access_token: config.services.mastadon.accessToken,
+        access_token: mastodon.accessToken,
     });
 
     M.post('statuses', { status: poast }, (err, data, response) => {
@@ -59,9 +72,9 @@ if (config.services.mastadon) {
     });
 }
 
-if (config.services.farcaster) {
-    const mnemonic = config.services.farcaster.mnemonic;
-    const pythonProcess = spawn('python3', ['./farcaster_scrap.py', mnemonic, poast]);
+if (farcaster) {
+    const mnemonic = farcaster.mnemonic;
+    const pythonProcess = spawn('python3', ['./farcaster_poster.py', mnemonic, poast]);
 
     pythonProcess.stdout.on('data', (data) => {
       console.log(`Python script output: ${data}`);
