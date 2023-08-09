@@ -1,0 +1,24 @@
+{
+    "services": {
+        "X": {
+          "appKey": "",
+          "appSecret": "",
+          "accessToken": "",
+          "accessSecret": ""
+        },
+        "bluesky": {
+          "identifier": "",
+          "password": ""
+        },
+        "threads": {
+          "username": "",
+          "password": ""
+        },
+        "farcaster": {
+            "mnemonic": ""
+        },
+        "mastadon": {
+            "accessToken": ""
+        }
+    }
+}

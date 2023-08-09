@@ -1,0 +1,20 @@
+{
+  "name": "twix",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@atproto/api": "^0.4.3",
+    "@threadsjs/threads.js": "^1.9.0",
+    "mastodon-api": "^1.3.0",
+    "minimist": "^1.2.8",
+    "twitter-api-v2": "^1.15.1"
+  }
+}
