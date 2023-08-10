@@ -8,11 +8,14 @@ import { spawn } from 'child_process';
 
 const argv = minimist(process.argv.slice(2));
 
+const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
+
 let x = config.services.X;
 let bluesky = config.services.bluesky;
 let threads = config.services.threads;
 let mastodon = config.services.mastodon;
 let farcaster = config.services.farcaster;
+
 if (argv.x || argv.b || argv.t || argv.m || argv.f) {
     x = argv.x && x;
     bluesky = argv.b && bluesky;
@@ -24,8 +27,6 @@ if (argv.x || argv.b || argv.t || argv.m || argv.f) {
 // TODO: Implement threaded multiple tweets.
 const poast = argv._[0];
 
-const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
-
 if (x) {
     const consumerClient = new TwitterApi({
       appKey: x.appKey,
@@ -34,7 +35,16 @@ if (x) {
       accessSecret: x.accessSecret,
     });
 
-    await consumerClient.v2.tweet(poast);
+    let previous_tweet_id;
+    for (const tweetText of argv._) {
+        let x_response;
+        if (!previous_tweet_id) {
+            x_response = await consumerClient.v2.tweet(tweetText);
+        } else {
+            x_response = await consumerClient.v2.reply(tweetText, previous_tweet_id);
+        }
+        previous_tweet_id = x_response.data.id;
+    }
 }
 
 if (bluesky) {
