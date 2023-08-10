@@ -70,11 +70,28 @@ if (bluesky) {
 }
 
 if (threads) {
-    const client = new Client();
-    await client.login(threads.username, threads.password);
+    let client;
+    if (threads.token) {
+        client = new Client({
+            token: threads.token,
+            userAgent: threads.userAgent,
+            appId: threads.appId,
+            androidId: threads.androidId,
+        });
+    } else {
+        client = new Client();
+        await client.login(threads.username, threads.password);
+    }
 
-    // TODO: store token so as not to login every single time.
-    await client.posts.create(1, { contents: poast })
+    let previous_response;
+    for (const postText of argv._) {
+        if (!previous_response) {
+            previous_response = await client.posts.create(1, { contents: postText });
+        } else {
+            let post_id = previous_response.media.id.split("_")[0];
+            previous_response = await client.posts.reply(1, { contents: postText, post: post_id});
+        }
+    }
 }
 
 if (mastodon) {
