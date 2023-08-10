@@ -1,4 +1,5 @@
 from farcaster import Warpcast
+from farcaster.models import Parent
 import sys
 # from dotenv import load_dotenv # can be installed with `pip install python-dotenv`
 
@@ -6,6 +7,11 @@ import sys
 
 client = Warpcast(mnemonic=sys.argv[1])
 
-print(client.get_healthcheck())
+response = None
+for poast in sys.argv[2:]:
+    if response is None:
+        response = client.post_cast(text=poast)
+    else:
+        parent = Parent(hash=response.cast.hash, fid=response.cast.author.fid)
+        response = client.post_cast(text=poast, parent=parent)
 
-response = client.post_cast(text=sys.argv[2])

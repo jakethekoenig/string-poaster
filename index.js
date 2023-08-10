@@ -110,9 +110,12 @@ if (mastodon) {
 
 if (farcaster) {
     const mnemonic = farcaster.mnemonic;
-    const pythonProcess = spawn('python3', ['./farcaster_poster.py', mnemonic, poast]);
+    const pythonProcess = spawn('python3', ['./farcaster_poster.py', mnemonic].concat(argv._));
 
     pythonProcess.stdout.on('data', (data) => {
       console.log(`Python script output: ${data}`);
+    });
+    pythonProcess.stderr.on('data', (data) => {
+      console.error(`Python script error: ${data}`);
     });
 }
