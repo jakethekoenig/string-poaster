@@ -55,9 +55,18 @@ if (bluesky) {
       password: bluesky.password,
     });
 
-    await agent.post({
-        text: poast
-    });
+    let previous_response;
+    let head_response;
+    for (const postText of argv._) {
+        let bsky_response;
+        if (!previous_response) {
+            bsky_response = await agent.post({ text: postText });
+            head_response = bsky_response;
+        } else {
+            bsky_response = await agent.post({ text: postText, reply: { parent: previous_response, root: head_response }});
+        }
+        previous_response = bsky_response;
+    }
 }
 
 if (threads) {
