@@ -24,9 +24,6 @@ if (argv.x || argv.b || argv.t || argv.m || argv.f) {
     farcaster = argv.f && farcaster;
 }
 
-// TODO: Implement threaded multiple tweets.
-const poast = argv._[0];
-
 if (x) {
     const consumerClient = new TwitterApi({
       appKey: x.appKey,
@@ -98,6 +95,8 @@ if (mastodon) {
     const M = new Mastodon({
         access_token: mastodon.accessToken,
     });
+
+    let poast = argv._.join("\n");
 
     M.post('statuses', { status: poast }, (err, data, response) => {
         if (err) {
