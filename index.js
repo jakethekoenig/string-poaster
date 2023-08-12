@@ -28,7 +28,7 @@ if (argv.x || argv.b || argv.t || argv.m || argv.f) {
 
 let paste = argv.p;
 
-    let temp_image_file;
+let temp_image_file;
 if (paste) {
     const __dirname = dirname(fileURLToPath(import.meta.url));
     temp_image_file = `${__dirname}/.xclip_temp.png`;
@@ -88,8 +88,20 @@ if (bluesky) {
     for (const postText of argv._) {
         let bsky_response;
         if (!previous_response) {
-            bsky_response = await agent.post({ text: postText });
-            head_response = bsky_response;
+            if (paste) {
+                let data = Buffer.from(fs.readFileSync(temp_image_file), 'binary');
+                let response = await agent.uploadBlob(data, {
+                  encoding: 'image/png',
+                });
+                bsky_response = await agent.post({ text: postText,
+                    embed: {
+                        $type: 'app.bsky.embed.images',
+                        images: [{ image: response.data.blob, alt: ""}]}});
+                head_response = bsky_response;
+            } else {
+                bsky_response = await agent.post({ text: postText });
+                head_response = bsky_response;
+            }
         } else {
             bsky_response = await agent.post({ text: postText, reply: { parent: previous_response, root: head_response }});
         }
