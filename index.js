@@ -30,9 +30,14 @@ if (argv.x || argv.b || argv.t || argv.m || argv.f) {
 let paste = argv.p;
 
 let temp_image_file;
+let temp_image_file_jpg;
 if (paste) {
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
     const __dirname = dirname(fileURLToPath(import.meta.url));
     temp_image_file = `${__dirname}/.xclip_temp.png`;
+    temp_image_file_jpg = `${__dirname}/.xclip_temp.jpg`;
     let logStream = fs.createWriteStream(temp_image_file);
 
     // TODO: support macOS and Windows
@@ -41,11 +46,14 @@ if (paste) {
     await xclipProcess.on('exit', (code) => {
         console.log(`xclip exited with code ${code}`);
     });
-    function sleep(ms) {
-      return new Promise((resolve) => setTimeout(resolve, ms));
-    }
     // I'm not sure why the previous await wasn't sufficient. In the future we can refactor the code as a callback.
     await sleep(500);
+    // It's unfortunate this is necessary but it seems the threads api has a bug with pngs
+    const convertProcess = spawn('convert', [temp_image_file, temp_image_file_jpg]);
+    convertProcess.stdout.pipe(logStream);
+    await convertProcess.on('exit', (code) => {
+        console.log(`convert exited with code ${code}`);
+    });
 }
 
 if (x) {
@@ -114,22 +122,33 @@ if (threads) {
     let threadsAPI;
     if (threads.token) {
         threadsAPI = new ThreadsAPI({
+            username: threads.username,
             token: threads.token,
-            deviceId: threads.deviceId,
+            deviceID: threads.deviceID,
         });
     } else {
         threadsAPI = new ThreadsAPI({
             username: threads.username,
             password: threads.password,
+            deviceID: threads.deviceID,
         });
     }
 
     let previous_response;
     for (const postText of argv._) {
         if (!previous_response) {
-            previous_response = await threadsAPI.publish({
-                text: postText
-            });
+            if (paste) {
+                previous_response = await threadsAPI.publish({
+                    text: postText,
+                    attachment: {
+                        image: { path: temp_image_file_jpg } //Need to put in sidecar: [] if multiple
+                    }
+                });
+            } else {
+                previous_response = await threadsAPI.publish({
+                    text: postText
+                });
+            }
         } else {
             let post_id = previous_response.split("_")[0];
             previous_response = await threadsAPI.publish({
