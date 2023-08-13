@@ -2,7 +2,8 @@ import minimist from 'minimist';
 import fs from 'fs';
 import { TwitterApi } from 'twitter-api-v2';
 import BskyAgent from '@atproto/api';
-import { Client } from '@threadsjs/threads.js';
+import pkg from 'threads-api';
+const { ThreadsAPI } = pkg; //TODO: understand why this is necessary?
 import Mastodon from 'mastodon-api';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -110,26 +111,31 @@ if (bluesky) {
 }
 
 if (threads) {
-    let client;
+    let threadsAPI;
     if (threads.token) {
-        client = new Client({
+        threadsAPI = new ThreadsAPI({
             token: threads.token,
-            userAgent: threads.userAgent,
-            appId: threads.appId,
-            androidId: threads.androidId,
+            deviceId: threads.deviceId,
         });
     } else {
-        client = new Client();
-        await client.login(threads.username, threads.password);
+        threadsAPI = new ThreadsAPI({
+            username: threads.username,
+            password: threads.password,
+        });
     }
 
     let previous_response;
     for (const postText of argv._) {
         if (!previous_response) {
-            previous_response = await client.posts.create(1, { contents: postText });
+            previous_response = await threadsAPI.publish({
+                text: postText
+            });
         } else {
-            let post_id = previous_response.media.id.split("_")[0];
-            previous_response = await client.posts.reply(1, { contents: postText, post: post_id});
+            let post_id = previous_response.split("_")[0];
+            previous_response = await threadsAPI.publish({
+                text: postText,
+                parentPostID: post_id
+            });
         }
     }
 }
