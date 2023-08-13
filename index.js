@@ -140,14 +140,25 @@ if (mastodon) {
     });
 
     let poast = argv._.join("\n");
-
-    M.post('statuses', { status: poast }, (err, data, response) => {
-        if (err) {
-            console.error(err);
-            return;
-        }
-        console.log(data);
-    });
+    if (paste) {
+        M.post('media', { file: fs.createReadStream(temp_image_file) }).then(resp => {
+            const id = resp.data.id;
+            M.post('statuses', { status: poast, media_ids: [id] }, (err, data, response) => {
+                if (err) {
+                    console.error(err);
+                    return;
+                }
+                console.log(data);
+            })});
+    } else {
+        M.post('statuses', { status: poast }, (err, data, response) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            console.log(data);
+        });
+    }
 }
 
 if (farcaster) {
