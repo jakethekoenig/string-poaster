@@ -11,6 +11,7 @@ response = None
 for poast in sys.argv[2:]:
     if response is None:
         response = client.post_cast(text=poast)
+        # response = client.post_cast(text=poast, embeds=['https://ja3k.com/asset/pic/cow.jpg'])
     else:
         parent = Parent(hash=response.cast.hash, fid=response.cast.author.fid)
         response = client.post_cast(text=poast, parent=parent)
