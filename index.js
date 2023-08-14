@@ -202,7 +202,7 @@ if (farcaster) {
         }
         let farcasterProcess = spawnSync('./farcaster_poster.py',
             [mnemonic, postText, hash, fid].concat(embeds),
-            {stdio: 'pipe', encoding: 'utf-8'})
-        [hash, fid] = farcasterProcess.stdout.split("\n")
+            {stdio: 'pipe', encoding: 'utf-8'});
+        [hash, fid] = farcasterProcess.stdout.split("\n");
     }
 }
