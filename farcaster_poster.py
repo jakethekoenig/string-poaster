@@ -1,18 +1,22 @@
+#!/usr/bin/python3
+
 from farcaster import Warpcast
 from farcaster.models import Parent
 import sys
-# from dotenv import load_dotenv # can be installed with `pip install python-dotenv`
 
-# load_dotenv()
+mnemonic = sys.argv[1]
+poast = sys.argv[2]
+parent_hash = sys.argv[3]
+parent_fid = sys.argv[4]
+embeds = sys.argv[5:]
 
-client = Warpcast(mnemonic=sys.argv[1])
+client = Warpcast(mnemonic=mnemonic)
 
-response = None
-for poast in sys.argv[2:]:
-    if response is None:
-        response = client.post_cast(text=poast)
-        # response = client.post_cast(text=poast, embeds=['https://ja3k.com/asset/pic/cow.jpg'])
-    else:
-        parent = Parent(hash=response.cast.hash, fid=response.cast.author.fid)
-        response = client.post_cast(text=poast, parent=parent)
+if parent_hash == 'None':
+    response = client.post_cast(text=poast, embeds=embeds)
+else:
+    parent = Parent(hash=parent_hash, fid=parent_fid)
+    response = client.post_cast(text=poast, parent=parent, embeds=embeds)
 
+print(response.cast.hash)
+print(response.cast.author.fid)

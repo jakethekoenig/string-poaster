@@ -5,9 +5,10 @@ import BskyAgent from '@atproto/api';
 import pkg from 'threads-api';
 const { ThreadsAPI } = pkg; //TODO: understand why this is necessary?
 import Mastodon from 'mastodon-api';
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { uploadImage } from './plugins/upload_image.js';
 
 const argv = minimist(process.argv.slice(2));
 
@@ -29,12 +30,12 @@ if (argv.x || argv.b || argv.t || argv.m || argv.f) {
 
 let paste = argv.p;
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 let temp_image_file;
 let temp_image_file_jpg;
 if (paste) {
-    function sleep(ms) {
-      return new Promise((resolve) => setTimeout(resolve, ms));
-    }
     const __dirname = dirname(fileURLToPath(import.meta.url));
     temp_image_file = `${__dirname}/.xclip_temp.png`;
     temp_image_file_jpg = `${__dirname}/.xclip_temp.jpg`;
@@ -65,20 +66,20 @@ if (x) {
     });
 
     let previous_tweet_id;
-    for (const tweetText of argv._) {
+    for (const postText of argv._) {
         let x_response;
         if (!previous_tweet_id) {
             if (paste) {
                 const mediaIds = await Promise.all([consumerClient.v1.uploadMedia(temp_image_file)]);
                 // TODO: can we refactor to pass empty mediaIds array when no images to only call tweet once?
                 x_response = await consumerClient.v2.tweet(
-                    {text: tweetText,
+                    {text: postText,
                      media: { media_ids: mediaIds }});
             } else {
-                x_response = await consumerClient.v2.tweet(tweetText);
+                x_response = await consumerClient.v2.tweet(postText);
             }
         } else {
-            x_response = await consumerClient.v2.reply(tweetText, previous_tweet_id);
+            x_response = await consumerClient.v2.reply(postText, previous_tweet_id);
         }
         previous_tweet_id = x_response.data.id;
     }
@@ -188,12 +189,20 @@ if (mastodon) {
 
 if (farcaster) {
     const mnemonic = farcaster.mnemonic;
-    const pythonProcess = spawn('python3', ['./farcaster_poster.py', mnemonic].concat(argv._));
 
-    pythonProcess.stdout.on('data', (data) => {
-      console.log(`Python script output: ${data}`);
-    });
-    pythonProcess.stderr.on('data', (data) => {
-      console.error(`Python script error: ${data}`);
-    });
+    let hash = 'None';
+    let fid = 'None';
+    for (const postText of argv._) {
+        let embeds;
+        if (paste && hash == 'None') {
+            const remote_image_file = await uploadImage(temp_image_file);
+            embeds = [remote_image_file];
+        } else {
+            embeds = [];
+        }
+        let farcasterProcess = spawnSync('./farcaster_poster.py',
+            [mnemonic, postText, hash, fid].concat(embeds),
+            {stdio: 'pipe', encoding: 'utf-8'})
+        [hash, fid] = farcasterProcess.stdout.split("\n")
+    }
 }
