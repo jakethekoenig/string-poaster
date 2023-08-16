@@ -7,10 +7,72 @@ const { ThreadsAPI } = pkg; //TODO: understand why this is necessary?
 import Mastodon from 'mastodon-api';
 import { spawn, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { dirname, extname } from 'path';
 import { uploadImage } from './plugins/upload_image.js';
 
 const argv = minimist(process.argv.slice(2));
+
+// Returns array of jpg images. That way we can use concat instead of caller handling error.
+// It's unfortunate this is necessary but it seems the threads api has a bug with pngs
+// TODO: move to helpers file?
+// TODO: also downsize images to respect twitter's limit: 5242880 bytes
+function image_to_jpg(image) {
+    let ext = extname(image);
+    let jpg_image = image.replace(ext, '.jpg');
+
+    const convertProcess = spawnSync('convert', [image, jpg_image]);
+    if (convertProcess.status == 0) {
+        return [jpg_image];
+    } else {
+        console.log("Copying image to jpg failed.");
+        return [];
+    }
+}
+
+
+let thread = [];
+let current_post = {
+    images: [],
+    images_jpg: [], // Unfortunately the threads api doesn't support png
+};
+
+
+if (argv.p) {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    let temp_image_file = `${__dirname}/.xclip_temp.png`;
+    let temp_image_file_jpg = `${__dirname}/.xclip_temp.jpg`;
+
+    // TODO: support macOS and Windows
+    const xclipProcess = spawnSync('xclip', ['-selection', 'clipboard', '-t', 'image/png', '-o'],
+                                   {stdio: 'pipe'});
+    fs.writeFileSync(temp_image_file, xclipProcess.stdout);
+    
+    if (xclipProcess.status != 0) {
+        console.log("Obtaining image from clipboard failed.");
+    } else {
+        current_post.images.push(temp_image_file);
+        let jpg_image = image_to_jpg(temp_image_file);
+        current_post.images_jpg = current_post.images_jpg.concat(jpg_image);
+    }
+}
+
+for (const postOrImage of argv._) {
+    if (fs.existsSync(postOrImage)) { // Currently the only supported embed is images.
+        current_post.images.push(postOrImage);
+        let jpg_image = image_to_jpg(postOrImage);
+        current_post.images_jpg = current_post.images_jpg.concat(jpg_image);
+    } else {
+        if (current_post.text) {
+            thread.push(current_post);
+            current_post = {
+                images: [],
+                images_jpg: [],
+            };
+        }
+        current_post.text = postOrImage;
+    }
+}
+thread.push(current_post);
 
 const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
 
@@ -28,34 +90,6 @@ if (argv.x || argv.b || argv.t || argv.m || argv.f) {
     farcaster = argv.f && farcaster;
 }
 
-let paste = argv.p;
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-let temp_image_file;
-let temp_image_file_jpg;
-if (paste) {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    temp_image_file = `${__dirname}/.xclip_temp.png`;
-    temp_image_file_jpg = `${__dirname}/.xclip_temp.jpg`;
-    let logStream = fs.createWriteStream(temp_image_file);
-
-    // TODO: support macOS and Windows
-    const xclipProcess = spawn('xclip', ['-selection', 'clipboard', '-t', 'image/png', '-o']);
-    xclipProcess.stdout.pipe(logStream);
-    await xclipProcess.on('exit', (code) => {
-        console.log(`xclip exited with code ${code}`);
-    });
-    // I'm not sure why the previous await wasn't sufficient. In the future we can refactor the code as a callback.
-    await sleep(500);
-    // It's unfortunate this is necessary but it seems the threads api has a bug with pngs
-    const convertProcess = spawn('convert', [temp_image_file, temp_image_file_jpg]);
-    convertProcess.stdout.pipe(logStream);
-    await convertProcess.on('exit', (code) => {
-        console.log(`convert exited with code ${code}`);
-    });
-}
 
 if (x) {
     const consumerClient = new TwitterApi({
@@ -64,58 +98,57 @@ if (x) {
       accessToken: x.accessToken,
       accessSecret: x.accessSecret,
     });
-
-    let previous_tweet_id;
-    for (const postText of argv._) {
-        let x_response;
-        if (!previous_tweet_id) {
-            if (paste) {
-                const mediaIds = await Promise.all([consumerClient.v1.uploadMedia(temp_image_file)]);
-                // TODO: can we refactor to pass empty mediaIds array when no images to only call tweet once?
-                x_response = await consumerClient.v2.tweet(
-                    {text: postText,
-                     media: { media_ids: mediaIds }});
-            } else {
-                x_response = await consumerClient.v2.tweet(postText);
-            }
-        } else {
-            x_response = await consumerClient.v2.reply(postText, previous_tweet_id);
+    async function post_to_X(text, images, parent_post) {
+        const mediaIds = await Promise.all(images.map(image => consumerClient.v1.uploadMedia(image)));
+        let post_data = { text: text };
+        if (mediaIds.length > 0) {
+            post_data.media = {media_ids: mediaIds};
         }
-        previous_tweet_id = x_response.data.id;
+        if (parent_post) {
+            post_data.reply = {in_reply_to_tweet_id: parent_post.data.id};
+        }
+        return await consumerClient.v2.tweet(post_data);
+    }
+
+    // The API provides tweetThread. Perhaps we should use that instead?
+    let previous_tweet;
+    for (const post of thread) {
+        previous_tweet = await post_to_X(post.text, post.images, previous_tweet);
     }
 }
 
 if (bluesky) {
     const agent = new BskyAgent.BskyAgent({ service: 'https://bsky.social' })
-
     await agent.login({
       identifier: bluesky.identifier,
       password: bluesky.password,
     });
 
-    let previous_response;
-    let head_response;
-    for (const postText of argv._) {
-        let bsky_response;
-        if (!previous_response) {
-            if (paste) {
-                let data = Buffer.from(fs.readFileSync(temp_image_file), 'binary');
-                let response = await agent.uploadBlob(data, {
-                  encoding: 'image/png',
-                });
-                bsky_response = await agent.post({ text: postText,
-                    embed: {
-                        $type: 'app.bsky.embed.images',
-                        images: [{ image: response.data.blob, alt: ""}]}});
-                head_response = bsky_response;
-            } else {
-                bsky_response = await agent.post({ text: postText });
-                head_response = bsky_response;
-            }
-        } else {
-            bsky_response = await agent.post({ text: postText, reply: { parent: previous_response, root: head_response }});
+    async function post_to_bsky(text, images, parent_id, root_id) {
+        let post_data = { text: text };
+        if (parent_id) {
+            post_data.reply = { parent: parent_id, root: root_id };
         }
-        previous_response = bsky_response;
+
+        if (images.length > 0) {
+            let image_response = await Promise.all(images.map(image => agent.uploadBlob(image, {
+                encoding: 'image/jpg',
+            })));
+
+            post_data.embed = {
+                $type: 'app.bsky.embed.images',
+                images: image_response.map(image_res => { return { image: image_res.data.blob, alt: "" } })};
+        }
+
+        return await agent.post(post_data);
+    }
+
+    let previous_response, head_response;
+    for (const post of thread) {
+        previous_response = await post_to_bsky(post.text, post.images_jpg, previous_response, head_response);
+        if (!head_response) {
+            head_response = previous_response;
+        }
     }
 }
 
@@ -135,28 +168,33 @@ if (threads) {
         });
     }
 
-    let previous_response;
-    for (const postText of argv._) {
-        if (!previous_response) {
-            if (paste) {
-                previous_response = await threadsAPI.publish({
-                    text: postText,
-                    attachment: {
-                        image: { path: temp_image_file_jpg } //Need to put in sidecar: [] if multiple
-                    }
-                });
-            } else {
-                previous_response = await threadsAPI.publish({
-                    text: postText
-                });
-            }
-        } else {
-            let post_id = previous_response.split("_")[0];
-            previous_response = await threadsAPI.publish({
-                text: postText,
-                parentPostID: post_id
-            });
+    async function post_to_threads(text, images, previous_response) {
+        let post_data = { text: text };
+        if (previous_response) {
+            let parent_post_id = previous_response.split("_")[0];
+            post_data.parentPostID = parent_post_id;
         }
+
+        if (images.length > 0) {
+            if (images.length > 1) {
+                post_data.attachment = {
+                    sidecar: images
+                };
+            } else {
+                post_data.attachment = {
+                    image: {
+                        path: images[0]
+                    }
+                };
+            }
+        }
+
+        return await threadsAPI.publish(post_data);
+    }
+
+    let previous_response;
+    for (const post of thread) {
+        previous_response = await post_to_threads(post.text, post.images, previous_response);
     }
 }
 
@@ -165,26 +203,23 @@ if (mastodon) {
         access_token: mastodon.accessToken,
     });
 
-    let poast = argv._.join("\n");
-    if (paste) {
-        M.post('media', { file: fs.createReadStream(temp_image_file) }).then(resp => {
-            const id = resp.data.id;
-            M.post('statuses', { status: poast, media_ids: [id] }, (err, data, response) => {
-                if (err) {
-                    console.error(err);
-                    return;
-                }
-                console.log(data);
-            })});
-    } else {
-        M.post('statuses', { status: poast }, (err, data, response) => {
-            if (err) {
-                console.error(err);
-                return;
-            }
-            console.log(data);
-        });
+    let poast = "";
+    for (const post of thread) {
+        poast += post.text + "\n";
     }
+    let image_ids = [];
+    for (const post of thread) {
+        for (const image of post.images) {
+            let image_response = await M.post('media', { file: fs.createReadStream(image) });
+            image_ids.push(image_response.data.id);
+        }
+    }
+    M.post('statuses', { status: poast, media_ids: image_ids }, (err, data, response) => {
+        if (err) {
+            console.error(err);
+            return;
+        }
+    });
 }
 
 if (farcaster) {
@@ -192,16 +227,14 @@ if (farcaster) {
 
     let hash = 'None';
     let fid = 'None';
-    for (const postText of argv._) {
-        let embeds;
-        if (paste && hash == 'None') {
-            const remote_image_file = await uploadImage(temp_image_file);
-            embeds = [remote_image_file];
-        } else {
-            embeds = [];
+    for (const post of thread) {
+        let embeds = [];
+        for (const image of post.images) {
+            const remote_image_file = await uploadImage(image);
+            embeds.push(remote_image_file);
         }
         let farcasterProcess = spawnSync('./farcaster_poster.py',
-            [mnemonic, postText, hash, fid].concat(embeds),
+            [mnemonic, post.text, hash, fid].concat(embeds),
             {stdio: 'pipe', encoding: 'utf-8'});
         [hash, fid] = farcasterProcess.stdout.split("\n");
     }
