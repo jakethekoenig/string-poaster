@@ -92,150 +92,175 @@ if (argv.x || argv.b || argv.t || argv.m || argv.f) {
 
 
 if (x) {
-    const consumerClient = new TwitterApi({
-      appKey: x.appKey,
-      appSecret: x.appSecret,
-      accessToken: x.accessToken,
-      accessSecret: x.accessSecret,
-    });
-    async function post_to_X(text, images, parent_post) {
-        const mediaIds = await Promise.all(images.map(image => consumerClient.v1.uploadMedia(image)));
-        let post_data = { text: text };
-        if (mediaIds.length > 0) {
-            post_data.media = {media_ids: mediaIds};
+    try {
+        const consumerClient = new TwitterApi({
+          appKey: x.appKey,
+          appSecret: x.appSecret,
+          accessToken: x.accessToken,
+          accessSecret: x.accessSecret,
+        });
+        async function post_to_X(text, images, parent_post) {
+            const mediaIds = await Promise.all(images.map(image => consumerClient.v1.uploadMedia(image)));
+            let post_data = { text: text };
+            if (mediaIds.length > 0) {
+                post_data.media = {media_ids: mediaIds};
+            }
+            if (parent_post) {
+                post_data.reply = {in_reply_to_tweet_id: parent_post.data.id};
+            }
+            return await consumerClient.v2.tweet(post_data);
         }
-        if (parent_post) {
-            post_data.reply = {in_reply_to_tweet_id: parent_post.data.id};
-        }
-        return await consumerClient.v2.tweet(post_data);
-    }
 
-    // The API provides tweetThread. Perhaps we should use that instead?
-    let previous_tweet;
-    for (const post of thread) {
-        previous_tweet = await post_to_X(post.text, post.images, previous_tweet);
+        // The API provides tweetThread. Perhaps we should use that instead?
+        let previous_tweet;
+        for (const post of thread) {
+            previous_tweet = await post_to_X(post.text, post.images, previous_tweet);
+        }
+    } catch (e) {
+        console.log(e);
+        console.log("Posting to X failed. See error above.");
     }
 }
 
 if (bluesky) {
-    const agent = new BskyAgent.BskyAgent({ service: 'https://bsky.social' })
-    await agent.login({
-      identifier: bluesky.identifier,
-      password: bluesky.password,
-    });
+    try {
+        const agent = new BskyAgent.BskyAgent({ service: 'https://bsky.social' })
+        await agent.login({
+          identifier: bluesky.identifier,
+          password: bluesky.password,
+        });
 
-    async function post_to_bsky(text, images, parent_id, root_id) {
-        let post_data = { text: text };
-        if (parent_id) {
-            post_data.reply = { parent: parent_id, root: root_id };
+        async function post_to_bsky(text, images, parent_id, root_id) {
+            let post_data = { text: text };
+            if (parent_id) {
+                post_data.reply = { parent: parent_id, root: root_id };
+            }
+
+            if (images.length > 0) {
+                let image_response = await Promise.all(images.map(image => agent.uploadBlob(image, {
+                    encoding: 'image/jpg',
+                })));
+
+                post_data.embed = {
+                    $type: 'app.bsky.embed.images',
+                    images: image_response.map(image_res => { return { image: image_res.data.blob, alt: "" } })};
+            }
+
+            return await agent.post(post_data);
         }
 
-        if (images.length > 0) {
-            let image_response = await Promise.all(images.map(image => agent.uploadBlob(image, {
-                encoding: 'image/jpg',
-            })));
-
-            post_data.embed = {
-                $type: 'app.bsky.embed.images',
-                images: image_response.map(image_res => { return { image: image_res.data.blob, alt: "" } })};
+        let previous_response, head_response;
+        for (const post of thread) {
+            previous_response = await post_to_bsky(post.text, post.images_jpg, previous_response, head_response);
+            if (!head_response) {
+                head_response = previous_response;
+            }
         }
-
-        return await agent.post(post_data);
-    }
-
-    let previous_response, head_response;
-    for (const post of thread) {
-        previous_response = await post_to_bsky(post.text, post.images_jpg, previous_response, head_response);
-        if (!head_response) {
-            head_response = previous_response;
-        }
+    } catch (e) {
+        console.log(e);
+        console.log("Posting to bluesky failed. See error above.");
     }
 }
 
 if (threads) {
-    let threadsAPI;
-    if (threads.token) {
-        threadsAPI = new ThreadsAPI({
-            username: threads.username,
-            token: threads.token,
-            deviceID: threads.deviceID,
-        });
-    } else {
-        threadsAPI = new ThreadsAPI({
-            username: threads.username,
-            password: threads.password,
-            deviceID: threads.deviceID,
-        });
-    }
-
-    async function post_to_threads(text, images, previous_response) {
-        let post_data = { text: text };
-        if (previous_response) {
-            let parent_post_id = previous_response.split("_")[0];
-            post_data.parentPostID = parent_post_id;
+    try {
+        let threadsAPI;
+        if (threads.token) {
+            threadsAPI = new ThreadsAPI({
+                username: threads.username,
+                token: threads.token,
+                deviceID: threads.deviceID,
+            });
+        } else {
+            threadsAPI = new ThreadsAPI({
+                username: threads.username,
+                password: threads.password,
+                deviceID: threads.deviceID,
+            });
         }
 
-        if (images.length > 0) {
-            if (images.length > 1) {
-                post_data.attachment = {
-                    sidecar: images
-                };
-            } else {
-                post_data.attachment = {
-                    image: {
-                        path: images[0]
-                    }
-                };
+        async function post_to_threads(text, images, previous_response) {
+            let post_data = { text: text };
+            if (previous_response) {
+                let parent_post_id = previous_response.split("_")[0];
+                post_data.parentPostID = parent_post_id;
             }
+
+            if (images.length > 0) {
+                if (images.length > 1) {
+                    post_data.attachment = {
+                        sidecar: images
+                    };
+                } else {
+                    post_data.attachment = {
+                        image: {
+                            path: images[0]
+                        }
+                    };
+                }
+            }
+
+            return await threadsAPI.publish(post_data);
         }
 
-        return await threadsAPI.publish(post_data);
-    }
-
-    let previous_response;
-    for (const post of thread) {
-        previous_response = await post_to_threads(post.text, post.images, previous_response);
+        let previous_response;
+        for (const post of thread) {
+            previous_response = await post_to_threads(post.text, post.images, previous_response);
+        }
+    } catch (e) {
+        console.log(e);
+        console.log("Posting to threads failed. See error above.");
     }
 }
 
 if (mastodon) {
-    const M = new Mastodon({
-        access_token: mastodon.accessToken,
-    });
+    try {
+        const M = new Mastodon({
+            access_token: mastodon.accessToken,
+        });
 
-    let poast = "";
-    for (const post of thread) {
-        poast += post.text + "\n";
-    }
-    let image_ids = [];
-    for (const post of thread) {
-        for (const image of post.images) {
-            let image_response = await M.post('media', { file: fs.createReadStream(image) });
-            image_ids.push(image_response.data.id);
+        let poast = "";
+        for (const post of thread) {
+            poast += post.text + "\n";
         }
-    }
-    M.post('statuses', { status: poast, media_ids: image_ids }, (err, data, response) => {
-        if (err) {
-            console.error(err);
-            return;
+        let image_ids = [];
+        for (const post of thread) {
+            for (const image of post.images) {
+                let image_response = await M.post('media', { file: fs.createReadStream(image) });
+                image_ids.push(image_response.data.id);
+            }
         }
-    });
+        M.post('statuses', { status: poast, media_ids: image_ids }, (err, data, response) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+        });
+    } catch (e) {
+        console.log(e);
+        console.log("Posting to mastodon failed. See error above.");
+    }
 }
 
 if (farcaster) {
-    const mnemonic = farcaster.mnemonic;
+    try {
+        const mnemonic = farcaster.mnemonic;
 
-    let hash = 'None';
-    let fid = 'None';
-    for (const post of thread) {
-        let embeds = [];
-        for (const image of post.images) {
-            const remote_image_file = await uploadImage(image);
-            embeds.push(remote_image_file);
+        let hash = 'None';
+        let fid = 'None';
+        for (const post of thread) {
+            let embeds = [];
+            for (const image of post.images) {
+                const remote_image_file = await uploadImage(image);
+                embeds.push(remote_image_file);
+            }
+            let farcasterProcess = spawnSync('./farcaster_poster.py',
+                [mnemonic, post.text, hash, fid].concat(embeds),
+                {stdio: 'pipe', encoding: 'utf-8'});
+            [hash, fid] = farcasterProcess.stdout.split("\n");
         }
-        let farcasterProcess = spawnSync('./farcaster_poster.py',
-            [mnemonic, post.text, hash, fid].concat(embeds),
-            {stdio: 'pipe', encoding: 'utf-8'});
-        [hash, fid] = farcasterProcess.stdout.split("\n");
+    } catch (e) {
+        console.log(e);
+        console.log("Posting to farcaster failed. See error above.");
     }
 }
