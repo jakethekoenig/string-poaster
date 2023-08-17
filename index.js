@@ -94,6 +94,7 @@ if (argv.x || argv.b || argv.t || argv.m || argv.f) {
 }
 
 if (x) {
+    console.log("Posting to X");
     try {
         const consumerClient = new TwitterApi({
           appKey: x.appKey,
@@ -125,6 +126,7 @@ if (x) {
 }
 
 if (bluesky) {
+    console.log("Posting to bluesky");
     try {
         const agent = new BskyAgent.BskyAgent({ service: 'https://bsky.social' })
         await agent.login({
@@ -139,9 +141,12 @@ if (bluesky) {
             }
 
             if (images.length > 0) {
-                let image_response = await Promise.all(images.map(image => agent.uploadBlob(image, {
-                    encoding: 'image/jpg',
-                })));
+                let image_response = await Promise.all(images.map(image => {
+                    let data = Buffer.from(fs.readFileSync(image), 'binary');
+                    return agent.uploadBlob(data, {
+                        encoding: 'image/jpeg',
+                    });
+                }));
 
                 post_data.embed = {
                     $type: 'app.bsky.embed.images',
@@ -153,6 +158,7 @@ if (bluesky) {
 
         let previous_response, head_response;
         for (const post of thread) {
+            // jpg file is used because bluesky requires you to specify the encoding and I don't want to detect it.
             previous_response = await post_to_bsky(post.text, post.images_jpg, previous_response, head_response);
             if (!head_response) {
                 head_response = previous_response;
@@ -165,6 +171,7 @@ if (bluesky) {
 }
 
 if (threads) {
+    console.log("Posting to threads");
     try {
         let threadsAPI;
         if (threads.token) {
@@ -216,6 +223,7 @@ if (threads) {
 }
 
 if (mastodon) {
+    console.log("Posting to mastodon");
     try {
         const M = new Mastodon({
             access_token: mastodon.accessToken,
@@ -247,6 +255,7 @@ if (mastodon) {
 }
 
 if (farcaster) {
+    console.log("Posting to farcaster");
     try {
         const mnemonic = farcaster.mnemonic;
 
