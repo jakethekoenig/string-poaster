@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import minimist from 'minimist';
 import fs from 'fs';
 import { TwitterApi } from 'twitter-api-v2';
@@ -72,7 +73,9 @@ for (const postOrImage of argv._) {
         current_post.text = postOrImage;
     }
 }
-thread.push(current_post);
+if (current_post.text) {
+    thread.push(current_post);
+}
 
 const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
 
@@ -89,7 +92,6 @@ if (argv.x || argv.b || argv.t || argv.m || argv.f) {
     mastodon = argv.m && mastodon;
     farcaster = argv.f && farcaster;
 }
-
 
 if (x) {
     try {
@@ -230,12 +232,14 @@ if (mastodon) {
                 image_ids.push(image_response.data.id);
             }
         }
-        M.post('statuses', { status: poast, media_ids: image_ids }, (err, data, response) => {
-            if (err) {
-                console.error(err);
-                return;
-            }
-        });
+        if (poast.length > 0) {
+            M.post('statuses', { status: poast, media_ids: image_ids }, (err, data, response) => {
+                if (err) {
+                    console.error(err);
+                    return;
+                }
+            });
+        }
     } catch (e) {
         console.log(e);
         console.log("Posting to mastodon failed. See error above.");
