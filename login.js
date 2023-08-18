@@ -10,11 +10,28 @@ import os from 'os';
 let config = {
     services: {}
 };
+const configPath = path.join(os.homedir(), '.poast-config.json');
+if(fs.existsSync(configPath)) {
+    try {
+        config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch (e) {
+        console.log("Error parsing ~/.poast-config.json");
+        console.log(e);
+        process.exit(1);
+    }
+}
+
 const hidden = { hideEchoBack: true };
 
 console.log("This is a utility to enter the accounts and credentials you want to poast with.");
 console.log("They will be saved to ~/.poast-config.json which is possible to manually edit.");
 
+if (config.services.X) {
+    const xyn = readlineSync.question("Forget previous X credentials? (y/N) ");
+    if (xyn == "y" || xyn == "Y") {
+        delete config.services.X;
+    }
+}
 const xyn = readlineSync.question("Setup X (Twitter)? (Y/n) ");
 if (xyn == "y" || xyn == "Y" || xyn == "") {
     console.log("Currently OAuth is not supported so you will have need your own twitter developer account and app credentials.");
@@ -31,6 +48,12 @@ if (xyn == "y" || xyn == "Y" || xyn == "") {
     };
 }
 
+if (config.services.bluesky) {
+    const xyn = readlineSync.question("Forget previous bluesky credentials? (y/N) ");
+    if (xyn == "y" || xyn == "Y") {
+        delete config.services.bluesky;
+    }
+}
 const byn = readlineSync.question("Setup Bluesky? (Y/n) ");
 if (byn == "y" || byn == "Y" || byn == "") {
     console.log("Bluesky is authenticated with username and password. Note you can setup an application specific password which is easier to revoke.");
@@ -42,6 +65,12 @@ if (byn == "y" || byn == "Y" || byn == "") {
     };
 }
 
+if (config.services.threads) {
+    const xyn = readlineSync.question("Forget previous threads credentials? (y/N) ");
+    if (xyn == "y" || xyn == "Y") {
+        delete config.services.threads;
+    }
+}
 const tyn = readlineSync.question("Setup Threads? (Y/n) ");
 if (tyn == "y" || tyn == "Y" || tyn == "") {
     console.log("Threads is authenticated with username and password. They are used by this script to obtain a user token and the password is not saved.");
@@ -59,6 +88,12 @@ if (tyn == "y" || tyn == "Y" || tyn == "") {
     };
 }
 
+if (config.services.mastodon) {
+    const xyn = readlineSync.question("Forget previous mastodon credentials? (y/N) ");
+    if (xyn == "y" || xyn == "Y") {
+        delete config.services.mastodon;
+    }
+}
 const myn = readlineSync.question("Setup Mastodon? (Y/n) ");
 if (myn == "y" || myn == "Y" || myn == "") {
     let clientId;
@@ -93,6 +128,12 @@ if (myn == "y" || myn == "Y" || myn == "") {
     };
 }
 
+if (config.services.farcaster) {
+    const xyn = readlineSync.question("Forget previous Farcaster credentials? (y/N) ");
+    if (xyn == "y" || xyn == "Y") {
+        delete config.services.farcaster;
+    }
+}
 const fyn = readlineSync.question("Setup Farcaster? (Y/n) ");
 if (fyn == "y" || fyn == "Y" || fyn == "") {
     console.log("Farcaster is authenticated with a mnemonic pass phrase.");
@@ -102,5 +143,4 @@ if (fyn == "y" || fyn == "Y" || fyn == "") {
     };
 }
 
-const configPath = path.join(os.homedir(), '.poast-config.json');
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));

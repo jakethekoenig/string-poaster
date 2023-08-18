@@ -77,7 +77,8 @@ if (current_post.text) {
     thread.push(current_post);
 }
 
-const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
+const configPath = path.join(os.homedir(), '.poast-config.json');
+const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 let x = config.services.X;
 let bluesky = config.services.bluesky;
