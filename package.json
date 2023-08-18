@@ -1,22 +1,24 @@
 {
   "name": "string-poaster",
   "type": "module",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.1.0",
+  "description": "A command line utility for making the same post to multiple social media platforms. Currently supports X, bluesky, threads, Mastodon and Farcaster.",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
   "bin": {
     "poast": "./index.js",
     "poast-login": "./login.js"
   },
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jakethekoenig/string-poaster.git"
+  },
+  "author": "Jake Koenig (ja3k.com)",
   "license": "ISC",
   "dependencies": {
     "@atproto/api": "^0.4.3",
-    "@threadsjs/threads.js": "^1.9.0",
     "mastodon-api": "^1.3.0",
     "minimist": "^1.2.8",
     "readline-sync": "^1.4.10",
