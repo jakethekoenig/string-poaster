@@ -1,6 +1,8 @@
 import { basename } from 'path';
 import { spawnSync } from 'child_process';
 import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 // TODO: do this in one place?
 const configPath = path.join(os.homedir(), '.poast-config.json');

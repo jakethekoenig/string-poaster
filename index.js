@@ -8,7 +8,8 @@ const { ThreadsAPI } = pkg; //TODO: understand why this is necessary?
 import Mastodon from 'mastodon-api';
 import { spawn, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
-import { dirname, extname } from 'path';
+import path from 'path';
+import os from 'os';
 import { uploadImage } from './plugins/upload_image.js';
 
 const argv = minimist(process.argv.slice(2));
@@ -39,7 +40,7 @@ let current_post = {
 
 
 if (argv.p) {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
     let temp_image_file = `${__dirname}/.xclip_temp.png`;
     let temp_image_file_jpg = `${__dirname}/.xclip_temp.jpg`;
 
@@ -268,6 +269,7 @@ if (farcaster) {
                 const remote_image_file = await uploadImage(image);
                 embeds.push(remote_image_file);
             }
+
             let farcasterProcess = spawnSync('./farcaster_poster.py',
                 [mnemonic, post.text, hash, fid].concat(embeds),
                 {stdio: 'pipe', encoding: 'utf-8'});
