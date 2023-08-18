@@ -3,7 +3,8 @@ import { spawnSync } from 'child_process';
 import fs from 'fs';
 
 // TODO: do this in one place?
-const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
+const configPath = path.join(os.homedir(), '.poast-config.json');
+const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 // Farcaster doesn't host images so we need to upload it ourselves somewhere.
 // The intention of this file is to be an example of how I do it. Others may want to use Imgur.
