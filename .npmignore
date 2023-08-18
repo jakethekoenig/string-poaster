@@ -1,2 +1,4 @@
 scrap/
 config.json
+.git
+.gitignore
