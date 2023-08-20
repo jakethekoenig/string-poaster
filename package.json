@@ -1,7 +1,7 @@
 {
   "name": "string-poaster",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A command line utility for making the same post to multiple social media platforms. Currently supports X, bluesky, threads, Mastodon and Farcaster.",
   "main": "index.js",
   "scripts": {
