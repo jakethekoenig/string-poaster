@@ -6,7 +6,7 @@ A command line utility for making the same post to multiple social media platfor
 ## Install
 
 ```bash
-npm install -g @ja3k/string-poaster
+npm i -g string-poaster
 pip install farcaster # if you want to use farcaster. The node library does not support embeds.
 ```
 
