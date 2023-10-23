@@ -2,3 +2,6 @@ scrap/
 config.json
 .git
 .gitignore
+node_modules
+*.png
+*.jpg

@@ -38,11 +38,11 @@ let current_post = {
     images_jpg: [], // Unfortunately the threads api doesn't support png
 };
 
+const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 if (argv.p) {
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    let temp_image_file = `${__dirname}/.xclip_temp.png`;
-    let temp_image_file_jpg = `${__dirname}/.xclip_temp.jpg`;
+    let temp_image_file = `${dirname}/.xclip_temp.png`;
+    let temp_image_file_jpg = `${dirname}/.xclip_temp.jpg`;
 
     // TODO: support macOS and Windows
     const xclipProcess = spawnSync('xclip', ['-selection', 'clipboard', '-t', 'image/png', '-o'],
@@ -270,7 +270,7 @@ if (farcaster) {
                 embeds.push(remote_image_file);
             }
 
-            let farcasterProcess = spawnSync('./farcaster_poster.py',
+            let farcasterProcess = spawnSync(`${dirname}/farcaster_poster.py`,
                 [mnemonic, post.text, hash, fid].concat(embeds),
                 {stdio: 'pipe', encoding: 'utf-8'});
             [hash, fid] = farcasterProcess.stdout.split("\n");
