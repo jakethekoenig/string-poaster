@@ -19,7 +19,7 @@ const argv = minimist(process.argv.slice(2));
 // TODO: move to helpers file?
 // TODO: also downsize images to respect twitter's limit: 5242880 bytes
 function image_to_jpg(image) {
-    let ext = extname(image);
+    let ext = path.extname(image);
     let jpg_image = image.replace(ext, '.jpg');
 
     const convertProcess = spawnSync('convert', [image, jpg_image]);
@@ -31,6 +31,65 @@ function image_to_jpg(image) {
     }
 }
 
+// Opens an editor for the user to compose their message
+// Returns an array of messages split by the delimiter
+function openEditor() {
+    const editor = process.env.EDITOR || 'nvim';
+    const tempFile = path.join(os.tmpdir(), `poast-${Date.now()}.txt`);
+    
+    // Create a template file with instructions
+    const template = `# Compose your post below
+# Lines starting with # are comments and will be ignored
+# Use \\ to separate multiple posts in a thread
+# Empty lines are preserved
+
+`;
+    fs.writeFileSync(tempFile, template);
+    
+    // Open the editor and wait for it to close
+    const editorProcess = spawnSync(editor, [tempFile], {
+        stdio: 'inherit'
+    });
+    
+    if (editorProcess.status !== 0) {
+        console.error(`Editor exited with status ${editorProcess.status}`);
+        process.exit(1);
+    }
+    
+    // Read the file content
+    const content = fs.readFileSync(tempFile, 'utf8');
+    
+    // Clean up the temp file
+    fs.unlinkSync(tempFile);
+    
+    // Parse the content
+    const messages = [];
+    let currentMessage = '';
+    
+    for (const line of content.split('\n')) {
+        // Skip comment lines
+        if (line.startsWith('#')) {
+            continue;
+        }
+        
+        // Check for delimiter
+        if (line.trim() === '\\\\') {
+            if (currentMessage.trim()) {
+                messages.push(currentMessage.trim());
+                currentMessage = '';
+            }
+        } else {
+            currentMessage += line + '\n';
+        }
+    }
+    
+    // Add the last message if it's not empty
+    if (currentMessage.trim()) {
+        messages.push(currentMessage.trim());
+    }
+    
+    return messages;
+}
 
 let thread = [];
 let current_post = {
@@ -58,12 +117,17 @@ if (argv.p) {
     }
 }
 
-for (const postOrImage of argv._) {
-    if (fs.existsSync(postOrImage)) { // Currently the only supported embed is images.
-        current_post.images.push(postOrImage);
-        let jpg_image = image_to_jpg(postOrImage);
-        current_post.images_jpg = current_post.images_jpg.concat(jpg_image);
-    } else {
+// If no text arguments are provided, open an editor
+if (argv._.length === 0) {
+    const messages = openEditor();
+    
+    if (messages.length === 0) {
+        console.log("No message provided. Exiting.");
+        process.exit(0);
+    }
+    
+    // Create thread from editor messages
+    for (const message of messages) {
         if (current_post.text) {
             thread.push(current_post);
             current_post = {
@@ -71,11 +135,34 @@ for (const postOrImage of argv._) {
                 images_jpg: [],
             };
         }
-        current_post.text = postOrImage;
+        current_post.text = message;
     }
-}
-if (current_post.text) {
-    thread.push(current_post);
+    
+    if (current_post.text) {
+        thread.push(current_post);
+    }
+} else {
+    // Process command line arguments as before
+    for (const postOrImage of argv._) {
+        if (fs.existsSync(postOrImage)) { // Currently the only supported embed is images.
+            current_post.images.push(postOrImage);
+            let jpg_image = image_to_jpg(postOrImage);
+            current_post.images_jpg = current_post.images_jpg.concat(jpg_image);
+        } else {
+            if (current_post.text) {
+                thread.push(current_post);
+                current_post = {
+                    images: [],
+                    images_jpg: [],
+                };
+            }
+            current_post.text = postOrImage;
+        }
+    }
+    
+    if (current_post.text) {
+        thread.push(current_post);
+    }
 }
 
 const configPath = path.join(os.homedir(), '.poast-config.json');
