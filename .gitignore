@@ -3,3 +3,15 @@ node_modules
 .xclip_temp.png
 .xclip_temp.jpg
 scrap
+
+# Linting and formatting
+.eslintrc.json
+.prettierrc.json
+pyproject.toml
+.eslintcache
+__pycache__/
+*.py[cod]
+
+# Environment
+.env
+.venv
