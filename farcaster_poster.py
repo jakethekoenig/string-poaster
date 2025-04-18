@@ -12,7 +12,7 @@ embeds = sys.argv[5:]
 
 client = Warpcast(mnemonic=mnemonic)
 
-if parent_hash == 'None':
+if parent_hash == "None":
     response = client.post_cast(text=poast, embeds=embeds)
 else:
     parent = Parent(hash=parent_hash, fid=parent_fid)
