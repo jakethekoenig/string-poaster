@@ -12,7 +12,9 @@ import path from 'path';
 import os from 'os';
 import { uploadImage } from './plugins/upload_image.js';
 
-const argv = minimist(process.argv.slice(2));
+const argv = minimist(process.argv.slice(2), {
+    boolean: ['x', 'b', 't', 'm', 'f', 'p']
+});
 
 // Returns array of jpg images. That way we can use concat instead of caller handling error.
 // It's unfortunate this is necessary but it seems the threads api has a bug with pngs
