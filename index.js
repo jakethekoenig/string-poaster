@@ -108,8 +108,17 @@ if (argv.p) {
     const platform = os.platform();
     
     if (platform === 'darwin') {
-        // macOS: Use pbpaste to get image from clipboard
-        clipboardProcess = spawnSync('pbpaste', ['-Prefer', 'png'], {stdio: 'pipe'});
+        // macOS: Use AppleScript to get PNG data from clipboard, then convert from hex to binary
+        const osascriptProcess = spawnSync('osascript', ['-e', 'the clipboard as «class PNGf»'], {stdio: 'pipe', encoding: 'utf8'});
+        if (osascriptProcess.status === 0 && osascriptProcess.stdout.trim()) {
+            // Convert hex output to binary using xxd
+            clipboardProcess = spawnSync('xxd', ['-r', '-p'], {
+                stdio: 'pipe',
+                input: osascriptProcess.stdout.trim()
+            });
+        } else {
+            clipboardProcess = { status: 1, stdout: null };
+        }
         errorHint = "Make sure you have an image copied to your clipboard.";
     } else if (platform === 'linux') {
         // Linux: Use xclip to get image from clipboard
@@ -121,7 +130,7 @@ if (argv.p) {
         clipboardProcess = { status: 1, stdout: null };
     }
     
-    if (clipboardProcess.status != 0 || (platform === 'darwin' && clipboardProcess.stdout.length === 0)) {
+    if (clipboardProcess.status != 0) {
         console.log("Obtaining image from clipboard failed.");
         if (errorHint) {
             console.log(errorHint);
