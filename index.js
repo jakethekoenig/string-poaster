@@ -121,7 +121,7 @@ if (argv.p) {
         clipboardProcess = { status: 1, stdout: null };
     }
     
-    if (clipboardProcess.status != 0) {
+    if (clipboardProcess.status != 0 || (platform === 'darwin' && clipboardProcess.stdout.length === 0)) {
         console.log("Obtaining image from clipboard failed.");
         if (errorHint) {
             console.log(errorHint);
