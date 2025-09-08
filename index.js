@@ -12,8 +12,9 @@ import path from 'path';
 import os from 'os';
 import { uploadImage } from './plugins/upload_image.js';
 
+const SERVICE_FLAGS = ['x', 'b', 't', 'm', 'f'];
 const argv = minimist(process.argv.slice(2), {
-    boolean: ['x', 'b', 't', 'm', 'f', 'p']
+    boolean: [...SERVICE_FLAGS, 'p']
 });
 
 // Returns array of jpg images. That way we can use concat instead of caller handling error.
@@ -176,7 +177,7 @@ let threads = config.services.threads;
 let mastodon = config.services.mastodon;
 let farcaster = config.services.farcaster;
 
-if (argv.x || argv.b || argv.t || argv.m || argv.f) {
+if (SERVICE_FLAGS.some(flag => argv[flag])) {
     x = argv.x && x;
     bluesky = argv.b && bluesky;
     threads = argv.t && threads;
