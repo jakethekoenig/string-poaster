@@ -111,10 +111,12 @@ if (argv.p) {
         // macOS: Use AppleScript to get PNG data from clipboard, then convert from hex to binary
         const osascriptProcess = spawnSync('osascript', ['-e', 'the clipboard as «class PNGf»'], {stdio: 'pipe', encoding: 'utf8'});
         if (osascriptProcess.status === 0 && osascriptProcess.stdout.trim()) {
+            // Strip AppleScript formatting (remove «data PNGf prefix and » suffix)
+            const cleanHex = osascriptProcess.stdout.trim().replace(/«data PNGf/g, '').replace(/»/g, '');
             // Convert hex output to binary using xxd
             clipboardProcess = spawnSync('xxd', ['-r', '-p'], {
                 stdio: 'pipe',
-                input: osascriptProcess.stdout.trim()
+                input: cleanHex
             });
         } else {
             clipboardProcess = { status: 1, stdout: null };
