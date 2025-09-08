@@ -103,14 +103,30 @@ if (argv.p) {
     let temp_image_file = `${dirname}/.xclip_temp.png`;
     let temp_image_file_jpg = `${dirname}/.xclip_temp.jpg`;
 
-    // TODO: support macOS and Windows
-    const xclipProcess = spawnSync('xclip', ['-selection', 'clipboard', '-t', 'image/png', '-o'],
-                                   {stdio: 'pipe'});
-    fs.writeFileSync(temp_image_file, xclipProcess.stdout);
+    let clipboardProcess;
+    const platform = os.platform();
     
-    if (xclipProcess.status != 0) {
-        console.log("Obtaining image from clipboard failed.");
+    if (platform === 'darwin') {
+        // macOS: Use pbpaste to get image from clipboard
+        clipboardProcess = spawnSync('pbpaste', ['-Prefer', 'png'], {stdio: 'pipe'});
+    } else if (platform === 'linux') {
+        // Linux: Use xclip to get image from clipboard
+        clipboardProcess = spawnSync('xclip', ['-selection', 'clipboard', '-t', 'image/png', '-o'], {stdio: 'pipe'});
     } else {
+        console.log(`Clipboard image support not implemented for platform: ${platform}`);
+        console.log("Currently supported platforms: macOS (darwin), Linux");
+        clipboardProcess = { status: 1, stdout: null };
+    }
+    
+    if (clipboardProcess.status != 0) {
+        console.log("Obtaining image from clipboard failed.");
+        if (platform === 'darwin') {
+            console.log("Make sure you have an image copied to your clipboard.");
+        } else if (platform === 'linux') {
+            console.log("Make sure xclip is installed and you have an image copied to your clipboard.");
+        }
+    } else {
+        fs.writeFileSync(temp_image_file, clipboardProcess.stdout);
         current_post.images.push(temp_image_file);
         let jpg_image = image_to_jpg(temp_image_file);
         current_post.images_jpg = current_post.images_jpg.concat(jpg_image);
