@@ -106,14 +106,42 @@ if (argv.p) {
     let temp_image_file = `${dirname}/.xclip_temp.png`;
     let temp_image_file_jpg = `${dirname}/.xclip_temp.jpg`;
 
-    // TODO: support macOS and Windows
-    const xclipProcess = spawnSync('xclip', ['-selection', 'clipboard', '-t', 'image/png', '-o'],
-                                   {stdio: 'pipe'});
-    fs.writeFileSync(temp_image_file, xclipProcess.stdout);
+    let clipboardProcess;
+    let errorHint = "";
+    const platform = os.platform();
     
-    if (xclipProcess.status != 0) {
-        console.log("Obtaining image from clipboard failed.");
+    if (platform === 'darwin') {
+        // macOS: Use AppleScript to get PNG data from clipboard, then convert from hex to binary
+        const osascriptProcess = spawnSync('osascript', ['-e', 'the clipboard as «class PNGf»'], {stdio: 'pipe', encoding: 'utf8'});
+        if (osascriptProcess.status === 0 && osascriptProcess.stdout.trim()) {
+            // Strip AppleScript formatting (remove «data PNGf prefix and » suffix)
+            const cleanHex = osascriptProcess.stdout.trim().replace(/«data PNGf/g, '').replace(/»/g, '');
+            // Convert hex output to binary using xxd
+            clipboardProcess = spawnSync('xxd', ['-r', '-p'], {
+                stdio: 'pipe',
+                input: cleanHex
+            });
+        } else {
+            clipboardProcess = { status: 1, stdout: null };
+        }
+        errorHint = "Make sure you have an image copied to your clipboard.";
+    } else if (platform === 'linux') {
+        // Linux: Use xclip to get image from clipboard
+        clipboardProcess = spawnSync('xclip', ['-selection', 'clipboard', '-t', 'image/png', '-o'], {stdio: 'pipe'});
+        errorHint = "Make sure xclip is installed and you have an image copied to your clipboard.";
     } else {
+        console.log(`Clipboard image support not implemented for platform: ${platform}`);
+        console.log("Currently supported platforms: macOS (darwin), Linux");
+        clipboardProcess = { status: 1, stdout: null };
+    }
+    
+    if (clipboardProcess.status != 0) {
+        console.log("Obtaining image from clipboard failed.");
+        if (errorHint) {
+            console.log(errorHint);
+        }
+    } else {
+        fs.writeFileSync(temp_image_file, clipboardProcess.stdout);
         current_post.images.push(temp_image_file);
         let jpg_image = image_to_jpg(temp_image_file);
         current_post.images_jpg = current_post.images_jpg.concat(jpg_image);

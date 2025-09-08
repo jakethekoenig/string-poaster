@@ -50,7 +50,10 @@ The `p` flag attempts to dump the clipboard to `.xclip_temp.png` and attach it t
 
 ### Images Quirks
 
-The author did not find a reliable node library that could get an image from the clipboard so is spawning `xclip` which you will need to install yourself and has only been tested on Ubuntu.
+The author did not find a reliable node library that could get an image from the clipboard so is using platform-specific clipboard commands:
+- **Linux**: Uses `xclip` which you will need to install yourself
+- **macOS**: Uses the built-in `pbpaste` command (no additional installation required)
+- **Windows**: Not yet supported
 
 The threads library only supports jpg and bluesky requires the filetype to be specified so for both those networks the image is converted to jpg with `convert` which again the user will have to have installed and may only work on Ubuntu.
 
