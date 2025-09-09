@@ -231,7 +231,14 @@ if (x) {
             if (parent_post) {
                 post_data.reply = {in_reply_to_tweet_id: parent_post.data.id};
             }
-            return await consumerClient.v2.tweet(post_data);
+            const res = await consumerClient.v2.tweet(post_data);
+            try {
+                const id = res?.data?.id;
+                if (id) {
+                    console.log(`X: https://x.com/i/web/status/${id}`);
+                }
+            } catch (_e) {}
+            return res;
         }
 
         // The API provides tweetThread. Perhaps we should use that instead?
@@ -280,6 +287,18 @@ if (bluesky) {
         for (const post of thread) {
             // jpg file is used because bluesky requires you to specify the encoding and I don't want to detect it.
             previous_response = await post_to_bsky(post.text, post.images_jpg, previous_response, head_response);
+            try {
+                const uri = previous_response?.uri; // e.g., at://did:plc:.../app.bsky.feed.post/3k...
+                if (uri) {
+                    const parts = uri.split('/');
+                    // ['at:', '', 'did:plc:...', 'app.bsky.feed.post', 'rkey']
+                    const did = parts[2];
+                    const rkey = parts[4];
+                    if (did && rkey) {
+                        console.log(`Bluesky: https://bsky.app/profile/${did}/post/${rkey}`);
+                    }
+                }
+            } catch (_e) {}
             if (!head_response) {
                 head_response = previous_response;
             }
@@ -335,6 +354,11 @@ if (threads) {
         let previous_response;
         for (const post of thread) {
             previous_response = await post_to_threads(post.text, post.images, previous_response);
+            try {
+                if (previous_response) {
+                    console.log(`Threads: posted (id ${previous_response})`);
+                }
+            } catch (_e) {}
         }
     } catch (e) {
         console.log(e);
@@ -366,6 +390,11 @@ if (mastodon) {
                     console.error(err);
                     return;
                 }
+                try {
+                    if (data && data.url) {
+                        console.log(`Mastodon: ${data.url}`);
+                    }
+                } catch (_e) {}
             });
         }
     } catch (e) {
@@ -392,6 +421,11 @@ if (farcaster) {
                 [mnemonic, post.text, hash, fid].concat(embeds),
                 {stdio: 'pipe', encoding: 'utf-8'});
             [hash, fid] = farcasterProcess.stdout.split("\n");
+            try {
+                if (hash) {
+                    console.log(`Farcaster: https://warpcast.com/~/casts/${hash}`);
+                }
+            } catch (_e) {}
         }
     } catch (e) {
         console.log(e);
